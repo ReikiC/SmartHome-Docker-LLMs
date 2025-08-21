@@ -109,7 +109,7 @@ The system consists of **5 microservices** running in Docker containers, designe
 
 ### Hardware Repo
 
-https://github.com/Reikimen/SmartHome-Hardware
+https://github.com/ReikiC/SmartHome-Hardwares
 
 ### Prerequisites
 
