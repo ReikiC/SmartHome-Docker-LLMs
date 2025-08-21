@@ -1,0 +1,127 @@
+version: '3.3' # for Jeston nano
+# version: '3.8' # for mac or virtual machine
+
+services:
+  # 1. Ollama服务 - 提供LLM能力
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-assistant-ollama
+    volumes:
+      - ./data/ollama:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    networks:
+      - ai-assistant-network
+
+  # 2. 语音识别服务 (STT) - 使用Whisper
+  stt-service:
+    build:
+      context: ./services/stt
+      dockerfile: Dockerfile
+    container_name: ai-assistant-stt
+    volumes:
+      - ./data/audio:/app/audio
+    ports:
+      - "8000:8000"  # ESP32录音上传端口
+    depends_on:
+      - ollama
+    environment:
+      - WHISPER_MODEL=base
+    restart: unless-stopped
+    networks:
+      - ai-assistant-network
+
+  # 3. 语音合成服务 (TTS)
+  tts-service:
+    build:
+      context: ./services/tts
+      dockerfile: Dockerfile
+    container_name: ai-assistant-tts
+    volumes:
+      - ./data/audio:/app/audio
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    networks:
+      - ai-assistant-network
+
+  # 4. IoT控制服务
+  iot-control:
+    build:
+      context: ./services/iot
+      dockerfile: Dockerfile
+    container_name: ai-assistant-iot
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    networks:
+      - ai-assistant-network
+
+  # 5. 主协调服务 - 处理所有服务间通信
+  coordinator:
+    build:
+      context: ./services/coordinator
+      dockerfile: Dockerfile
+    container_name: ai-assistant-coordinator
+    ports:
+      - "8080:8080"  # HTTP/WebSocket服务
+    depends_on:
+      - ollama
+      - stt-service
+      - tts-service
+      - iot-control
+    volumes:
+      - ./data:/app/data
+      - ./config/coordinator:/app/config  # 新增：配置持久化目录
+    environment:
+      - OLLAMA_HOST=ollama
+      - OLLAMA_PORT=11434
+      - OLLAMA_DEFAULT_MODEL=llama3:8b  # 默认模型（首次启动时使用）
+      - STT_HOST=stt-service
+      - STT_PORT=8000
+      - TTS_HOST=tts-service
+      - TTS_PORT=8001
+      - IOT_HOST=iot-control
+      - IOT_PORT=8002
+    restart: unless-stopped
+    networks:
+      - ai-assistant-network
+
+  # 测试运行服务（新增）
+  test-runner:
+    build:
+      context: .
+      dockerfile: ./Test/Dockerfile
+    container_name: ai-assistant-test-runner
+    volumes:
+      # 挂载整个Test目录
+      - ./Test:/app
+      # 共享音频数据目录
+      - ./data/audio:/app/data/audio
+      # 结果输出目录
+      - ./Test/results:/app/results
+    networks:
+      - ai-assistant-network  # 修正：使用正确的网络名称
+    depends_on:
+      - coordinator
+      - ollama
+      - stt-service  # 修正：使用正确的服务名称
+      - tts-service  # 修正：使用正确的服务名称
+      - iot-control  # 修正：使用正确的服务名称
+    environment:
+      - COORDINATOR_URL=http://coordinator:8080
+      - STT_URL=http://stt-service:8000
+      - TTS_URL=http://tts-service:8001
+      - IOT_URL=http://iot-control:8002
+      - PYTHONUNBUFFERED=1
+    # 保持容器运行，可以随时进入执行测试
+    command: tail -f /dev/null
+    restart: unless-stopped
+
+networks:
+  ai-assistant-network:
+    driver: bridge
+
+volumes:
+  ollama_data:

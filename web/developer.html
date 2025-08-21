@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant Control Panel - Enhanced</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Load configuration and modules -->
+    <script src="js/config.js"></script>
+    <script src="js/api-client.js"></script>
+    <script src="js/ollama.js"></script>
+    <script src="js/services.js"></script>
+    <script src="js/chat.js"></script>
+    <script src="js/iot.js"></script>
+    <script src="js/tts.js"></script>
+    <script src="js/websocket.js"></script>
+    <script src="js/stt-test.js"></script>
+    <script src="js/main.js"></script>
+</head>
+<body>
+    <!-- Mode Switcher -->
+    <div class="mode-switcher">
+        <a href="index.html" class="mode-btn">
+            <i class="bi bi-house-heart"></i> User Mode
+        </a>
+        <a href="developer.html" class="mode-btn active">
+            <i class="bi bi-code-slash"></i> Developer Mode
+        </a>
+    </div>
+
+    <div class="container-fluid">
+        <!-- Header -->
+        <header class="text-center my-4">
+            <h1 class="text-white mb-3">
+                <i class="bi bi-robot"></i> AI Voice Assistant Control Panel
+            </h1>
+            <p class="lead text-white-50">
+                Enhanced with Dynamic Model Switching and API Mode Support
+            </p>
+        </header>
+
+        <!-- 🔥 新增：API模式切换区域 -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-toggle-on"></i> API Mode Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- 当前状态显示 -->
+                        <div class="alert alert-info mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>Current Mode:</strong> <span id="current-mode-display" class="badge bg-primary">Loading...</span>
+                                    <br>
+                                    <strong>Current Model:</strong> <span id="current-model-display">Loading...</span>
+                                </div>
+                                <div id="mode-status-icon">
+                                    <i class="bi bi-check-circle text-success" style="font-size: 2rem;"></i>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 模式切换按钮 -->
+                        <div class="btn-group w-100 mb-3" role="group">
+                            <button type="button" class="btn btn-outline-primary" id="local-mode-btn" onclick="switchMode('local')">
+                                <i class="bi bi-hdd"></i> Local Ollama Mode
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="api-mode-btn" onclick="switchMode('api')">
+                                <i class="bi bi-cloud"></i> Remote API Mode
+                            </button>
+                        </div>
+
+                        <!-- 重启进度显示 -->
+                        <div id="restart-progress" class="alert alert-warning" style="display: none;">
+                            <div class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm me-2" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <div>
+                                    <strong>Service Restarting...</strong>
+                                    <div id="restart-message">Switching mode requires service restart. Please wait...</div>
+                                    <div class="progress mt-2" style="height: 5px;">
+                                        <div id="restart-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                             role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 错误消息显示 -->
+                        <div id="mode-error-message" class="alert alert-danger" style="display: none;">
+                            <i class="bi bi-exclamation-triangle"></i> <span id="mode-error-text"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 🔧 动态模型管理区域 -->
+        <div class="row mb-4">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-cpu-fill"></i> Dynamic Model Management</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Current Model</h6>
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="badge bg-primary me-2" id="current-model-badge">Loading...</span>
+                                    <small class="text-muted" id="current-model-size">Size: --</small>
+                                </div>
+                                
+                                <h6>Available Models</h6>
+                                <select class="form-select mb-3" id="model-selector">
+                                    <option value="">Loading models...</option>
+                                </select>
+                                
+                                <div class="d-grid gap-2">
+                                    <button class="btn btn-success" id="switch-model-btn" disabled>
+                                        <i class="bi bi-arrow-repeat"></i> Switch Model
+                                    </button>
+                                    <button class="btn btn-info" id="refresh-models-btn">
+                                        <i class="bi bi-arrow-clockwise"></i> Refresh Model List
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Model Information</h6>
+                                <div id="model-info-display" class="border rounded p-3 bg-light">
+                                    <small class="text-muted">Select a model to view details</small>
+                                </div>
+                                
+                                <h6 class="mt-3">Quick Model Download</h6>
+                                <div class="input-group mb-2">
+                                    <input type="text" class="form-control" id="model-download-input" 
+                                           placeholder="e.g. llama3:8b, qwen2:7b">
+                                    <button class="btn btn-warning" id="download-model-btn">
+                                        <i class="bi bi-download"></i> Pull
+                                    </button>
+                                </div>
+                                <small class="text-muted">Common models: llama3:8b, mistral:7b, codellama:7b</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <h6>Model Switch Status</h6>
+                            <div id="model-status-output" class="console-output" style="min-height: 80px;">
+                                <div class="text-muted">Ready for model management...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-speedometer2"></i> Model Performance</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-12 mb-3">
+                                <h6>Last Response Time</h6>
+                                <span class="badge bg-info" id="response-time-badge">-- ms</span>
+                            </div>
+                            <div class="col-6">
+                                <h6>Model Size</h6>
+                                <span class="badge bg-secondary" id="model-size-badge">-- MB</span>
+                            </div>
+                            <div class="col-6">
+                                <h6>Available</h6>
+                                <span class="badge bg-success" id="models-count-badge">--</span>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <h6>Quick Model Test</h6>
+                        <button class="btn btn-outline-primary btn-sm w-100" id="test-current-model">
+                            <i class="bi bi-play-circle"></i> Test Current Model
+                        </button>
+                        
+                        <div class="mt-2">
+                            <small id="model-test-result" class="text-muted">Click to test model performance</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Service Status and Original Model Management -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-cpu"></i> Ollama Model Management (Local)</h5>
+                    </div>
+                    <div class="card-body">
+                        <button id="check-models" class="btn btn-primary mb-3">Check Available Models</button>
+                        <div class="mb-3">
+                            <label for="model-name" class="form-label">Model Name:</label>
+                            <div class="input-group">
+                                <input type="text" id="model-name" class="form-control" placeholder="e.g.: llama3" value="llama3">
+                                <button id="pull-model" class="btn btn-success">Pull Model</button>
+                            </div>
+                        </div>
+                        <div id="models-output" class="output-area"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-activity"></i> Service Status Check</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-info" id="check-coordinator">
+                                <span class="status-indicator status-offline" id="coordinator-status"></span>
+                                Check Coordinator Service
+                            </button>
+                            <button class="btn btn-info" id="check-stt">
+                                <span class="status-indicator status-offline" id="stt-status"></span>
+                                Check STT Service
+                            </button>
+                            <button class="btn btn-info" id="check-tts">
+                                <span class="status-indicator status-offline" id="tts-status"></span>
+                                Check TTS Service
+                            </button>
+                            <button class="btn btn-info" id="check-iot">
+                                <span class="status-indicator status-offline" id="iot-status"></span>
+                                Check IoT Service
+                            </button>
+                            <button class="btn btn-info" id="check-ollama">
+                                <span class="status-indicator status-offline" id="ollama-status"></span>
+                                Check Ollama Service
+                            </button>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-warning w-100" id="check-all-services">
+                                <i class="bi bi-arrow-clockwise"></i> Check All Services
+                            </button>
+                        </div>
+                        <div id="status-output" class="output-area mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced AI Interaction -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-chat-dots"></i> Enhanced AI Interaction</h5>
+                        <small class="text-muted">Current Model: <span id="chat-current-model">Loading...</span></small>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="user-input" class="form-label">Input Text:</label>
+                            <textarea id="user-input" class="form-control" rows="3" placeholder="Enter your question for AI..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <button id="send-text" class="btn btn-primary">
+                                <i class="bi bi-send"></i> Send Text
+                            </button>
+                            <button id="clear-chat" class="btn btn-secondary">
+                                <i class="bi bi-trash"></i> Clear Conversation
+                            </button>
+                            <button class="btn btn-info" onclick="loadTestPrompts()">
+                                <i class="bi bi-card-list"></i> Load Test Prompts
+                            </button>
+                            <!-- 🔧 新增：模型信息显示 -->
+                            <button class="btn btn-outline-info" id="show-model-info">
+                                <i class="bi bi-info-circle"></i> Model Info
+                            </button>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>Conversation History:</h6>
+                            <div id="chat-history" class="chat-area"></div>
+                        </div>
+                        
+                        <div class="mt-3" id="audio-player-container" style="display: none;">
+                            <h6>AI Response Audio:</h6>
+                            <audio id="audio-player" controls></audio>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STT, IoT and TTS Controls (保持原样) -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-mic"></i> Speech Recognition (STT)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="stt-file" class="form-label">Upload Audio File:</label>
+                            <input type="file" id="stt-file" class="form-control" accept="audio/*">
+                        </div>
+                        <div class="mb-3">
+                            <button id="test-stt-upload" class="btn btn-primary" onclick="testSTTUpload()">
+                                <i class="bi bi-upload"></i> Test File Upload
+                            </button>
+                            <button id="test-stt-record" class="btn btn-success" onclick="testSTTRecord()">
+                                <i class="bi bi-mic-fill"></i> Test Live Recording
+                            </button>
+                        </div>
+                        
+                        <!-- Live Recording Controls -->
+                        <div id="stt-recording-controls" style="display: none;">
+                            <div class="alert alert-info">
+                                <i class="bi bi-mic"></i> Recording in progress...
+                                <button class="btn btn-sm btn-danger ms-2" onclick="stopSTTRecording()">Stop</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Test Results -->
+                        <div class="mb-3">
+                            <h6>Quick Tests:</h6>
+                            <div class="btn-group-vertical w-100" role="group">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="testSTTHealth()">Check STT Health</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="testSTTWithSample()">Test with Sample Audio</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="performSTTPerformanceTest()">Performance Test</button>
+                            </div>
+                        </div>
+                        
+                        <div id="stt-output" class="output-area mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-hdd-network"></i> IoT Device Control</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="device-type" class="form-label">Device Type:</label>
+                                <select id="device-type" class="form-select">
+                                    <option value="ceiling_light">Ceiling Light</option>
+                                    <option value="desk_lamp">Desk Lamp</option>
+                                    <option value="fan">Fan</option>
+                                    <option value="exhaust_fan">Exhaust Fan</option>
+                                    <option value="ac">AC</option>
+                                    <option value="curtain">Curtain</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="device-action" class="form-label">Action:</label>
+                                <select id="device-action" class="form-select">
+                                    <option value="on">Turn On</option>
+                                    <option value="off">Turn Off</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="device-location" class="form-label">Location:</label>
+                            <select id="device-location" class="form-select">
+                                <option value="living_room">Living Room</option>
+                                <option value="bedroom">Bedroom</option>
+                                <option value="kitchen">Kitchen</option>
+                                <option value="study">Study</option>
+                                <option value="bathroom">Bathroom</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Advanced Parameters -->
+                        <div class="row mb-3" id="advanced-params" style="display: none;">
+                            <div class="col-md-6">
+                                <label for="param-value" class="form-label">Parameter Value:</label>
+                                <input type="number" id="param-value" class="form-control" placeholder="e.g., 75 for brightness">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="param-type" class="form-label">Parameter Type:</label>
+                                <select id="param-type" class="form-select">
+                                    <option value="brightness">Brightness (%)</option>
+                                    <option value="temperature">Temperature (°C)</option>
+                                    <option value="speed">Speed (1-5)</option>
+                                    <option value="position">Position (%)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button id="send-command" class="btn btn-success">
+                                <i class="bi bi-play-circle"></i> Send Control Command
+                            </button>
+                            <button id="get-devices" class="btn btn-info">
+                                <i class="bi bi-list-ul"></i> Get All Device Status
+                            </button>
+                            <button class="btn btn-warning" onclick="toggleAdvancedParams()">
+                                <i class="bi bi-gear"></i> Advanced Parameters
+                            </button>
+                        </div>
+                        
+                        <!-- Scene Control -->
+                        <div class="mb-3">
+                            <h6>Scene Control:</h6>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('home_mode')">Home</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('sleep_mode')">Sleep</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('work_mode')">Work</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('movie_mode')">Movie</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('cooking_mode')">Cooking</button>
+                                <button class="btn btn-outline-primary btn-sm" onclick="executeSceneFromDev('away_mode')">Away</button>
+                            </div>
+                        </div>
+                        
+                        <div id="iot-output" class="output-area mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-soundwave"></i> Speech Synthesis (TTS)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="tts-text" class="form-label">Text to Synthesize:</label>
+                            <textarea id="tts-text" class="form-control" rows="3" placeholder="Enter text to convert to speech..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tts-voice" class="form-label">Voice Selection:</label>
+                            <select id="tts-voice" class="form-select">
+                                <option value="en-US-AriaNeural">Aria (Female)</option>
+                                <option value="en-US-GuyNeural">Guy (Male)</option>
+                                <option value="en-US-DavisNeural">Davis (Male)</option>
+                                <option value="en-US-JennyNeural">Jenny (Female)</option>
+                                <option value="en-US-AmberNeural">Amber (Female)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <button id="synthesize-speech" class="btn btn-primary">
+                                <i class="bi bi-play-circle"></i> Synthesize Speech
+                            </button>
+                            <button id="get-voices" class="btn btn-info">
+                                <i class="bi bi-list"></i> Get All Voices
+                            </button>
+                        </div>
+                        
+                        <!-- Quick TTS Tests -->
+                        <div class="mb-3">
+                            <h6>Quick Tests:</h6>
+                            <div class="btn-group-vertical w-100" role="group">
+                                <button class="btn btn-outline-secondary btn-sm" onclick="quickTTSTest('Hello, welcome to your smart home!')">Test Welcome</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="quickTTSTest('Good night, sweet dreams!')">Test Goodnight</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="quickTTSTest('The lights have been turned on in the living room.')">Test Action</button>
+                            </div>
+                        </div>
+                        
+                        <div id="tts-output" class="output-area mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WebSocket Real-time Interaction -->
+        <div class="row mb-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-broadcast"></i> WebSocket Real-time Interaction</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <button id="ws-connect" class="btn btn-primary">
+                                <i class="bi bi-plug"></i> Connect WebSocket
+                            </button>
+                            <button id="ws-disconnect" class="btn btn-danger" disabled>
+                                <i class="bi bi-plug-fill"></i> Disconnect
+                            </button>
+                            <span id="ws-status" class="ms-3 badge bg-secondary">Not Connected</span>
+                        </div>
+                        <div class="mb-3">
+                            <label for="ws-message" class="form-label">Send Message:</label>
+                            <div class="input-group">
+                                <input type="text" id="ws-message" class="form-control" placeholder="Enter message to send...">
+                                <button id="ws-send" class="btn btn-success" disabled>
+                                    <i class="bi bi-send"></i> Send
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- WebSocket Command Templates -->
+                        <div class="mb-3">
+                            <h6>Quick Commands:</h6>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-info btn-sm" onclick="sendWSCommand('ping')">Ping</button>
+                                <button class="btn btn-outline-info btn-sm" onclick="sendWSCommand('get_status')">Get Status</button>
+                                <button class="btn btn-outline-info btn-sm" onclick="sendWSCommand('test_text', 'Hello from WebSocket!')">Test Text</button>
+                                <!-- 🔧 新增：模型相关WebSocket命令 -->
+                                <button class="btn btn-outline-warning btn-sm" onclick="sendWSCommand('get_models')">Get Models</button>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h6>WebSocket Message History:</h6>
+                            <div id="ws-output" class="output-area"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Debug and Monitoring -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-bug"></i> Debug Tools</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-warning" onclick="clearAllOutputs()">
+                                <i class="bi bi-trash"></i> Clear All Outputs
+                            </button>
+                            <button class="btn btn-info" onclick="exportLogs()">
+                                <i class="bi bi-download"></i> Export Logs
+                            </button>
+                            <button class="btn btn-secondary" onclick="showSystemInfo()">
+                                <i class="bi bi-info-circle"></i> System Info
+                            </button>
+                            <button class="btn btn-primary" onclick="debugSTTService()">
+                                <i class="bi bi-mic"></i> Debug STT Service
+                            </button>
+                            <!-- 🔧 新增：模型调试工具 -->
+                            <button class="btn btn-success" onclick="debugModelSystem()">
+                                <i class="bi bi-cpu"></i> Debug Model System
+                            </button>
+                        </div>
+                        <div id="debug-output" class="output-area mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="bi bi-graph-up"></i> Performance Monitor</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <button class="btn btn-success" onclick="startPerformanceMonitor()">
+                                <i class="bi bi-play"></i> Start Monitoring
+                            </button>
+                            <button class="btn btn-danger" onclick="stopPerformanceMonitor()">
+                                <i class="bi bi-stop"></i> Stop Monitoring
+                            </button>
+                        </div>
+                        <div id="performance-metrics">
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <h6>Response Time</h6>
+                                    <span id="response-time" class="badge bg-primary">-- ms</span>
+                                </div>
+                                <div class="col-4">
+                                    <h6>Success Rate</h6>
+                                    <span id="success-rate" class="badge bg-success">--%</span>
+                                </div>
+                                <div class="col-4">
+                                    <h6>Active Connections</h6>
+                                    <span id="active-connections" class="badge bg-info">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center mt-4 mb-5">
+            <p class="text-white-50">AI Voice Assistant Control Panel &copy; 2025 - Enhanced</p>
+        </footer>
+    </div>
+
+    <!-- Mode Switcher JavaScript -->
+    <script src="js/api-mode.js"></script>
+
+    <!-- Enhanced JavaScript for Dynamic Model Management -->
+    <script>
+        // 🔧 新增：全局变量用于模型管理
+        let availableModels = [];
+        let currentModel = '';
+        let modelSwitchInProgress = false;
+
+        // 🔧 新增：动态模型管理函数
+        async function loadAvailableModels() {
+            try {
+                const response = await fetch(`${API_URLS.coordinator}/models`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    availableModels = data.available_models;
+                    currentModel = data.current_model;
+                    
+                    // 更新UI
+                    updateModelUI(data);
+                    updateModelSelector(availableModels);
+                    
+                    console.log('✅ Loaded models:', availableModels.length);
+                } else {
+                    console.error('❌ Failed to load models:', data.error);
+                    document.getElementById('model-status-output').innerHTML = 
+                        `<div class="console-output error">Failed to load models: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('❌ Error loading models:', error);
+                document.getElementById('model-status-output').innerHTML = 
+                    `<div class="console-output error">Error loading models: ${error.message}</div>`;
+            }
+        }
+
+        function updateModelUI(data) {
+            // 更新当前模型显示
+            document.getElementById('current-model-badge').textContent = data.current_model;
+            document.getElementById('chat-current-model').textContent = data.current_model;
+            
+            // 更新模型计数
+            document.getElementById('models-count-badge').textContent = data.total_models;
+            
+            // 更新当前模型大小
+            const currentModelData = data.available_models.find(m => m.is_current);
+            if (currentModelData) {
+                document.getElementById('current-model-size').textContent = `Size: ${currentModelData.size_mb} MB`;
+                document.getElementById('model-size-badge').textContent = `${currentModelData.size_mb} MB`;
+            }
+        }
+
+        function updateModelSelector(models) {
+            const selector = document.getElementById('model-selector');
+            selector.innerHTML = '';
+            
+            if (models.length === 0) {
+                selector.innerHTML = '<option value="">No models available</option>';
+                document.getElementById('switch-model-btn').disabled = true;
+                return;
+            }
+            
+            // 添加选项
+            selector.innerHTML = '<option value="">Select a model...</option>';
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name;
+                option.textContent = `${model.name} (${model.size_mb} MB)`;
+                if (model.is_current) {
+                    option.textContent += ' [CURRENT]';
+                    option.style.fontWeight = 'bold';
+                }
+                selector.appendChild(option);
+            });
+            
+            document.getElementById('switch-model-btn').disabled = false;
+        }
+
+        async function switchModel() {
+            const selectedModel = document.getElementById('model-selector').value;
+            if (!selectedModel) {
+                alert('Please select a model to switch to');
+                return;
+            }
+            
+            if (selectedModel === currentModel) {
+                alert('This model is already active');
+                return;
+            }
+            
+            if (modelSwitchInProgress) {
+                alert('Model switch already in progress');
+                return;
+            }
+            
+            modelSwitchInProgress = true;
+            const statusOutput = document.getElementById('model-status-output');
+            const switchBtn = document.getElementById('switch-model-btn');
+            
+            // 更新UI状态
+            switchBtn.disabled = true;
+            switchBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Switching...';
+            
+            statusOutput.innerHTML = `<div class="console-output">🔄 Switching to model: ${selectedModel}...</div>`;
+            
+            try {
+                const startTime = Date.now();
+                
+                const response = await fetch(`${API_URLS.coordinator}/models/switch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: selectedModel })
+                });
+                
+                const data = await response.json();
+                const endTime = Date.now();
+                const switchTime = endTime - startTime;
+                
+                if (response.ok && data.success) {
+                    currentModel = selectedModel;
+                    
+                    statusOutput.innerHTML += `<div class="console-output success">✅ Successfully switched to ${selectedModel} (${switchTime}ms)</div>`;
+                    
+                    // 显示模型测试结果
+                    if (data.test_result) {
+                        const testResult = data.test_result;
+                        statusOutput.innerHTML += `<div class="console-output">📊 Model test: ${testResult.success ? '✅ Passed' : '❌ Failed'}</div>`;
+                        if (testResult.eval_count) {
+                            statusOutput.innerHTML += `<div class="console-output">⚡ Performance: ${testResult.eval_count} tokens, ${Math.round(testResult.eval_duration / 1000000)}ms</div>`;
+                        }
+                    }
+                    
+                    // 刷新模型列表和UI
+                    await loadAvailableModels();
+                    
+                    // 更新性能指标
+                    document.getElementById('response-time-badge').textContent = `${switchTime} ms`;
+                    
+                } else {
+                    statusOutput.innerHTML += `<div class="console-output error">❌ Failed to switch model: ${data.error || 'Unknown error'}</div>`;
+                }
+                
+            } catch (error) {
+                statusOutput.innerHTML += `<div class="console-output error">❌ Error switching model: ${error.message}</div>`;
+            } finally {
+                modelSwitchInProgress = false;
+                switchBtn.disabled = false;
+                switchBtn.innerHTML = '<i class="bi bi-arrow-repeat"></i> Switch Model';
+            }
+        }
+
+        async function downloadModel() {
+            const modelName = document.getElementById('model-download-input').value.trim();
+            if (!modelName) {
+                alert('Please enter a model name to download');
+                return;
+            }
+            
+            const statusOutput = document.getElementById('model-status-output');
+            const downloadBtn = document.getElementById('download-model-btn');
+            
+            downloadBtn.disabled = true;
+            downloadBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Downloading...';
+            
+            statusOutput.innerHTML += `<div class="console-output">📥 Starting download for model: ${modelName}...</div>`;
+            statusOutput.innerHTML += `<div class="console-output">⏳ This may take several minutes depending on model size...</div>`;
+            
+            try {
+                const response = await fetch(`${API_URLS.coordinator}/models/pull`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model_name: modelName })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    statusOutput.innerHTML += `<div class="console-output success">✅ Successfully downloaded ${modelName}</div>`;
+                    
+                    // 刷新模型列表
+                    await loadAvailableModels();
+                    
+                    // 清空输入框
+                    document.getElementById('model-download-input').value = '';
+                    
+                } else {
+                    statusOutput.innerHTML += `<div class="console-output error">❌ Failed to download model: ${data.error || 'Unknown error'}</div>`;
+                }
+                
+            } catch (error) {
+                statusOutput.innerHTML += `<div class="console-output error">❌ Error downloading model: ${error.message}</div>`;
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.innerHTML = '<i class="bi bi-download"></i> Pull';
+            }
+        }
+
+        async function testCurrentModel() {
+            const testBtn = document.getElementById('test-current-model');
+            const testResult = document.getElementById('model-test-result');
+            
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Testing...';
+            testResult.textContent = 'Testing model performance...';
+            
+            try {
+                const startTime = Date.now();
+                
+                const response = await fetch(`${API_URLS.coordinator}/process_text`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: 'Hello! Please respond briefly to test the model.' })
+                });
+                
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    testResult.innerHTML = `✅ Model test successful! Response time: ${responseTime}ms<br><small>Response: "${data.ai_response.substring(0, 10000)}..."</small>`;
+                    testResult.className = 'text-success';
+                    
+                    // 更新性能指标
+                    document.getElementById('response-time-badge').textContent = `${responseTime} ms`;
+                    
+                    // 显示使用的模型信息
+                    if (data.model_used) {
+                        testResult.innerHTML += `<br><small>Model used: ${data.model_used}</small>`;
+                    }
+                    
+                } else {
+                    testResult.textContent = `❌ Model test failed: HTTP ${response.status}`;
+                    testResult.className = 'text-danger';
+                }
+                
+            } catch (error) {
+                testResult.textContent = `❌ Model test error: ${error.message}`;
+                testResult.className = 'text-danger';
+            } finally {
+                testBtn.disabled = false;
+                testBtn.innerHTML = '<i class="bi bi-play-circle"></i> Test Current Model';
+            }
+        }
+
+        function showModelInfo() {
+            const selectedModel = document.getElementById('model-selector').value;
+            const infoDisplay = document.getElementById('model-info-display');
+            
+            if (!selectedModel) {
+                infoDisplay.innerHTML = '<small class="text-muted">Select a model to view details</small>';
+                return;
+            }
+            
+            const modelData = availableModels.find(m => m.name === selectedModel);
+            if (modelData) {
+                infoDisplay.innerHTML = `
+                    <strong>${modelData.name}</strong><br>
+                    <small class="text-muted">
+                        Size: ${modelData.size_mb} MB<br>
+                        Modified: ${modelData.modified_at ? new Date(modelData.modified_at).toLocaleDateString() : 'Unknown'}<br>
+                        Status: ${modelData.is_current ? '<span class="badge bg-primary">Current</span>' : '<span class="badge bg-secondary">Available</span>'}
+                    </small>
+                `;
+            }
+        }
+
+        // 🔧 新增：调试模型系统
+        function debugModelSystem() {
+            const debugOutput = document.getElementById('debug-output');
+            debugOutput.innerHTML = '<div class="console-output">🔧 Debugging model system...</div>';
+            
+            // 显示当前模型状态
+            debugOutput.innerHTML += `<div class="console-output">Current Model: ${currentModel}</div>`;
+            debugOutput.innerHTML += `<div class="console-output">Available Models: ${availableModels.length}</div>`;
+            debugOutput.innerHTML += `<div class="console-output">Switch in Progress: ${modelSwitchInProgress}</div>`;
+            
+            // 测试模型API
+            fetch(`${API_URLS.coordinator}/models/current`)
+                .then(response => response.json())
+                .then(data => {
+                    debugOutput.innerHTML += `<div class="console-output success">✅ Model API working</div>`;
+                    debugOutput.innerHTML += `<div class="console-output">API Response: ${JSON.stringify(data, null, 2)}</div>`;
+                })
+                .catch(error => {
+                    debugOutput.innerHTML += `<div class="console-output error">❌ Model API error: ${error.message}</div>`;
+                });
+        }
+
+        // 🔧 新增：增强的WebSocket命令
+        function sendWSCommand(type, text = '') {
+            if (!wsConnection || wsConnection.readyState !== WebSocket.OPEN) {
+                const outputArea = document.getElementById('ws-output');
+                if (outputArea) {
+                    outputArea.innerHTML += '<div class="console-output error">❌ WebSocket not connected</div>';
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                }
+                return;
+            }
+            
+            try {
+                let messageObj;
+                
+                switch (type) {
+                    case 'test_text':
+                        messageObj = { 
+                            type: 'text', 
+                            text: text || 'Test message from developer console',
+                            timestamp: Date.now()
+                        };
+                        break;
+                        
+                    case 'ping':
+                        messageObj = { 
+                            type: 'ping',
+                            timestamp: Date.now()
+                        };
+                        break;
+                        
+                    case 'get_status':
+                        messageObj = { 
+                            type: 'get_status',
+                            timestamp: Date.now()
+                        };
+                        break;
+                        
+                    case 'get_models':
+                        messageObj = { 
+                            type: 'get_models',
+                            timestamp: Date.now()
+                        };
+                        break;
+                        
+                    default:
+                        console.error('Unknown command type:', type);
+                        return;
+                }
+                
+                wsConnection.send(JSON.stringify(messageObj));
+                
+                const outputArea = document.getElementById('ws-output');
+                if (outputArea) {
+                    outputArea.innerHTML += `<div class="console-output">📤 Command sent: ${type}</div>`;
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                }
+                
+            } catch (error) {
+                console.error('Error sending WebSocket command:', error);
+                const outputArea = document.getElementById('ws-output');
+                if (outputArea) {
+                    outputArea.innerHTML += `<div class="console-output error">❌ Command error: ${error.message}</div>`;
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                }
+            }
+        }
+
+        function enhancedWebSocketHandler(event) {
+            try {
+                // 安全检查：确保 event.data 存在且有效
+                if (!event || !event.data) {
+                    console.warn('WebSocket: Received empty or invalid event');
+                    return;
+                }
+
+                // 安全解析 JSON
+                let data;
+                try {
+                    data = JSON.parse(event.data);
+                } catch (parseError) {
+                    console.error('WebSocket: Failed to parse JSON:', parseError);
+                    const outputArea = document.getElementById('ws-output');
+                    if (outputArea) {
+                        outputArea.innerHTML += `<div class="console-output error">❌ Invalid JSON received: ${event.data}</div>`;
+                        outputArea.scrollTop = outputArea.scrollHeight;
+                    }
+                    return;
+                }
+
+                // 安全检查：确保 data 是对象
+                if (!data || typeof data !== 'object') {
+                    console.warn('WebSocket: Received non-object data:', data);
+                    return;
+                }
+
+                const outputArea = document.getElementById('ws-output');
+                if (!outputArea) {
+                    console.warn('WebSocket: Output area not found');
+                    return;
+                }
+                
+                // 根据消息类型处理
+                switch (data.type) {
+                    case 'model_switch':
+                        outputArea.innerHTML += `<div class="console-output success">🔄 Model switched to: ${data.new_model || 'Unknown'}</div>`;
+                        // 刷新本地模型状态
+                        if (typeof loadAvailableModels === 'function') {
+                            loadAvailableModels();
+                        }
+                        break;
+                        
+                    case 'models_list':
+                        const modelCount = data.available_models ? data.available_models.length : 0;
+                        outputArea.innerHTML += `<div class="console-output">📋 Received models list: ${modelCount} models</div>`;
+                        outputArea.innerHTML += `<div class="console-output">Current: ${data.current_model || 'None'}</div>`;
+                        break;
+                        
+                    case 'connection_established':
+                        outputArea.innerHTML += `<div class="console-output success">✅ Enhanced connection established</div>`;
+                        outputArea.innerHTML += `<div class="console-output">Current model: ${data.current_model || 'Unknown'}</div>`;
+                        
+                        // 安全检查 available_models
+                        if (data.available_models && Array.isArray(data.available_models)) {
+                            outputArea.innerHTML += `<div class="console-output">Available models: ${data.available_models.length}</div>`;
+                            
+                            // 更新本地状态
+                            if (typeof currentModel !== 'undefined') {
+                                currentModel = data.current_model;
+                            }
+                            if (typeof availableModels !== 'undefined') {
+                                availableModels = data.available_models;
+                            }
+                        } else {
+                            outputArea.innerHTML += `<div class="console-output">Available models: 0 (data invalid)</div>`;
+                        }
+                        break;
+                        
+                    case 'text_response':
+                    case 'audio_response':
+                        if (data.response) {
+                            outputArea.innerHTML += `<div class="console-output success">✅ AI Response received</div>`;
+                            outputArea.innerHTML += `<div class="console-output">Input: ${data.response.input_text || 'N/A'}</div>`;
+                            outputArea.innerHTML += `<div class="console-output">Response: ${data.response.ai_response || 'N/A'}</div>`;
+                            
+                            // 显示配置文件信息（如果有）
+                            if (data.response.config_file_info) {
+                                outputArea.innerHTML += `<div class="console-output">💾 Config: ${data.response.config_file_info.config_updated ? 'Updated' : 'Not updated'}</div>`;
+                            }
+                        } else {
+                            outputArea.innerHTML += `<div class="console-output">📨 Response received (no details)</div>`;
+                        }
+                        break;
+                        
+                    case 'error':
+                        const errorMsg = data.error || data.message || 'Unknown error';
+                        outputArea.innerHTML += `<div class="console-output error">❌ Error: ${errorMsg}</div>`;
+                        break;
+                        
+                    case 'pong':
+                        outputArea.innerHTML += `<div class="console-output">🏓 Pong received</div>`;
+                        break;
+                        
+                    default:
+                        // 对于未知消息类型，安全显示
+                        const safeData = JSON.stringify(data, null, 2).substring(0, 20000); // 限制长度
+                        outputArea.innerHTML += `<div class="console-output">📨 Received: ${safeData}</div>`;
+                        break;
+                }
+                
+                // 滚动到底部
+                outputArea.scrollTop = outputArea.scrollHeight;
+                
+            } catch (error) {
+                console.error('WebSocket message handling error:', error);
+                const outputArea = document.getElementById('ws-output');
+                if (outputArea) {
+                    outputArea.innerHTML += `<div class="console-output error">❌ Failed to parse message: ${error.message}</div>`;
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                }
+            }
+        }
+
+        
+        // 🔧 保持所有原有的JavaScript函数（从原文件）
+        // Global variables for developer mode
+        let performanceMonitorInterval = null;
+        let testRequestCount = 0;
+        let successfulRequests = 0;
+
+        // Advanced parameter control
+        function toggleAdvancedParams() {
+            const params = document.getElementById('advanced-params');
+            params.style.display = params.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Scene execution from developer mode
+        function executeSceneFromDev(sceneName) {
+            const outputArea = document.getElementById('iot-output');
+            outputArea.innerHTML += `<div class="console-output">Executing scene: ${sceneName}...</div>`;
+            
+            fetch(`${API_URLS.coordinator}/execute_scene`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scene_name: sceneName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                outputArea.innerHTML += `<div class="console-output success">Scene executed successfully!<br>Results: ${JSON.stringify(data, null, 2)}</div>`;
+            })
+            .catch(error => {
+                outputArea.innerHTML += `<div class="console-output error">Scene execution failed: ${error.message}</div>`;
+            });
+        }
+
+        // Quick TTS test
+        function quickTTSTest(text) {
+            document.getElementById('tts-text').value = text;
+            synthesizeSpeech();
+        }
+
+        // Debug tools
+        function clearAllOutputs() {
+            const outputs = ['models-output', 'status-output', 'chat-history', 'iot-output', 'tts-output', 'ws-output', 'debug-output', 'stt-output', 'model-status-output'];
+            outputs.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) element.innerHTML = '';
+            });
+            document.getElementById('debug-output').innerHTML = '<div class="console-output success">All outputs cleared</div>';
+        }
+
+        function exportLogs() {
+            const outputs = ['models-output', 'status-output', 'iot-output', 'tts-output', 'ws-output', 'stt-output', 'model-status-output'];
+            let logData = '';
+            
+            outputs.forEach(id => {
+                const element = document.getElementById(id);
+                if (element && element.textContent) {
+                    logData += `=== ${id.toUpperCase()} ===\n${element.textContent}\n\n`;
+                }
+            });
+            
+            const blob = new Blob([logData], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `smart-home-logs-enhanced-${new Date().toISOString().split('T')[0]}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            document.getElementById('debug-output').innerHTML = '<div class="console-output success">Enhanced logs exported successfully</div>';
+        }
+
+        function showSystemInfo() {
+            const info = {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform,
+                cookieEnabled: navigator.cookieEnabled,
+                onLine: navigator.onLine,
+                mediaDevices: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                audioContext: !!(window.AudioContext || window.webkitAudioContext),
+                timestamp: new Date().toISOString(),
+                apiUrls: API_URLS,
+                currentModel: currentModel,
+                availableModels: availableModels.length,
+                modelSwitchInProgress: modelSwitchInProgress
+            };
+            
+            document.getElementById('debug-output').innerHTML = `<div class="console-output">Enhanced System Information:<br><pre>${JSON.stringify(info, null, 2)}</pre></div>`;
+        }
+
+        // Performance monitoring
+        function startPerformanceMonitor() {
+            if (performanceMonitorInterval) return;
+            
+            performanceMonitorInterval = setInterval(async () => {
+                const startTime = Date.now();
+                testRequestCount++;
+                
+                try {
+                    const response = await fetch(`${API_URLS.coordinator}/`);
+                    if (response.ok) {
+                        successfulRequests++;
+                    }
+                    
+                    const responseTime = Date.now() - startTime;
+                    const successRate = ((successfulRequests / testRequestCount) * 100).toFixed(1);
+                    
+                    document.getElementById('response-time').textContent = `${responseTime} ms`;
+                    document.getElementById('success-rate').textContent = `${successRate}%`;
+                    document.getElementById('active-connections').textContent = wsConnection ? '1' : '0';
+                    
+                } catch (error) {
+                    const responseTime = Date.now() - startTime;
+                    document.getElementById('response-time').textContent = `${responseTime} ms`;
+                    
+                    const successRate = ((successfulRequests / testRequestCount) * 100).toFixed(1);
+                    document.getElementById('success-rate').textContent = `${successRate}%`;
+                }
+            }, 5000);
+            
+            document.getElementById('debug-output').innerHTML = '<div class="console-output success">Enhanced performance monitoring started</div>';
+        }
+
+        function stopPerformanceMonitor() {
+            if (performanceMonitorInterval) {
+                clearInterval(performanceMonitorInterval);
+                performanceMonitorInterval = null;
+                document.getElementById('debug-output').innerHTML = '<div class="console-output">Performance monitoring stopped</div>';
+            }
+        }
+
+        // Load test prompts
+        function loadTestPrompts() {
+            const testPrompts = [
+            // System Questions (10 Questions for Visitors)
+            "Who are the creators of this project?",
+            "Do you think you are smarter than Alexa? If so, what makes you smarter?",
+            "Why you can understand my intentions (commands)?",
+            "How do the system works?",
+            "Can you work without internet?",
+            "You said you can work without internet, how about the remote API mode?",
+            "What's your advantage compare with traditional methods?",
+            "What's technologies been applied for this project?",
+            "Tell me something about your hardware.",
+            "What's the framework of this project?",
+            
+            // Device Control Commands (15 Commands for Lights & Fans)
+            "Turn on the lights all over the house",
+            "Turn living room fan on",
+            "Dim bedroom lights to 20%",
+            "Whole home All lights off",
+            "Set Kitchen fan speed 3",
+            "Brighten study lights to maximum",
+            "Bathroom exhaust on",
+            "Bedroom all lights 40%",
+            "Turn off all fans in the home",
+            "Maximum fan speed at the living room",
+            "Lights on everywhere",
+            "Living room lights and fan off",
+            "Half brightness please",
+            "Kitchen lights off",
+            "Bedroom fan slow"
+        ];
+            
+            const randomPrompt = testPrompts[Math.floor(Math.random() * testPrompts.length)];
+            document.getElementById('user-input').value = randomPrompt;
+            
+            addMessageToChat('system', `Loaded test prompt: "${randomPrompt}"`);
+        }
+
+        // Enhanced initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Enhanced AI Voice Assistant Control Panel loading...');
+            
+            // 🔧 新增：初始化模型管理
+            loadAvailableModels();
+            
+            // 设置模型管理事件监听器
+            document.getElementById('switch-model-btn').addEventListener('click', switchModel);
+            document.getElementById('refresh-models-btn').addEventListener('click', () => loadAvailableModels());
+            document.getElementById('download-model-btn').addEventListener('click', downloadModel);
+            document.getElementById('test-current-model').addEventListener('click', testCurrentModel);
+            document.getElementById('model-selector').addEventListener('change', showModelInfo);
+            
+            // Ollama model management
+            document.getElementById('check-models').addEventListener('click', checkOllamaModels);
+            document.getElementById('pull-model').addEventListener('click', pullOllamaModel);
+            
+            // Service status check
+            document.getElementById('check-coordinator').addEventListener('click', () => checkServiceStatus('coordinator'));
+            document.getElementById('check-stt').addEventListener('click', () => checkServiceStatus('stt'));
+            document.getElementById('check-tts').addEventListener('click', () => checkServiceStatus('tts'));
+            document.getElementById('check-iot').addEventListener('click', () => checkServiceStatus('iot'));
+            document.getElementById('check-ollama').addEventListener('click', () => checkServiceStatus('ollama'));
+            document.getElementById('check-all-services').addEventListener('click', checkAllServicesStatus);
+            
+            // AI interaction
+            document.getElementById('send-text').addEventListener('click', sendTextToAI);
+            document.getElementById('clear-chat').addEventListener('click', clearChat);
+            document.getElementById('user-input').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendTextToAI();
+                }
+            });
+            
+            // 🔧 新增：模型信息显示
+            document.getElementById('show-model-info').addEventListener('click', function() {
+                addMessageToChat('system', `Current model: ${currentModel}<br>Available models: ${availableModels.length}<br>Switch in progress: ${modelSwitchInProgress ? 'Yes' : 'No'}`);
+            });
+            
+            // IoT device control
+            document.getElementById('send-command').addEventListener('click', sendIoTCommand);
+            document.getElementById('get-devices').addEventListener('click', getAllDevices);
+            document.getElementById('device-type').addEventListener('change', updateActionDropdown);
+            
+            // Text-to-speech
+            document.getElementById('synthesize-speech').addEventListener('click', synthesizeSpeech);
+            document.getElementById('get-voices').addEventListener('click', getAvailableVoices);
+            
+            // WebSocket interaction
+            document.getElementById('ws-connect').addEventListener('click', connectWebSocket);
+            document.getElementById('ws-disconnect').addEventListener('click', disconnectWebSocket);
+            document.getElementById('ws-send').addEventListener('click', sendWebSocketMessage);
+            document.getElementById('ws-message').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    sendWebSocketMessage();
+                }
+            });
+            
+            // Initialize
+            updateActionDropdown();
+            
+            // Auto-check service status on load
+            setTimeout(checkAllServicesStatus, 1000);
+            
+            // 🔧 新增：定期刷新模型列表
+            setInterval(() => {
+                if (!modelSwitchInProgress) {
+                    loadAvailableModels();
+                }
+            }, 30000); // 每30秒刷新一次
+            
+            console.log('✅ Enhanced AI Voice Assistant Control Panel loaded');
+        });
+        
+        // 🔧 新增：增强的WebSocket连接
+        function connectWebSocket() {
+            const statusElement = document.getElementById('ws-status');
+            const outputArea = document.getElementById('ws-output');
+            
+            if (!statusElement || !outputArea) {
+                console.error('Required WebSocket UI elements not found');
+                return;
+            }
+            
+            try {
+                wsConnection = new WebSocket(`ws://${window.location.hostname}:8080/ws`);
+                
+                statusElement.textContent = 'Connecting...';
+                statusElement.className = 'ms-3 badge bg-warning';
+                
+                // Connection opened
+                wsConnection.onopen = function() {
+                    statusElement.textContent = 'Connected';
+                    statusElement.className = 'ms-3 badge bg-success';
+                    
+                    document.getElementById('ws-connect').disabled = true;
+                    document.getElementById('ws-disconnect').disabled = false;
+                    const sendButton = document.getElementById('ws-send');
+                    if (sendButton) {
+                        sendButton.disabled = false;
+                    }
+                    
+                    outputArea.innerHTML += '<div class="console-output success">✅ WebSocket connected successfully</div>';
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                };
+                
+                // Message received
+                wsConnection.onmessage = function(event) {
+                    try {
+                        // 安全检查事件数据
+                        if (!event || !event.data) {
+                            console.warn('WebSocket: Received empty message');
+                            return;
+                        }
+                        
+                        // 尝试解析 JSON
+                        let data;
+                        try {
+                            data = JSON.parse(event.data);
+                        } catch (parseError) {
+                            console.error('WebSocket JSON parse error:', parseError);
+                            outputArea.innerHTML += `<div class="console-output error">❌ Invalid JSON: ${event.data.substring(0, 10000)}...</div>`;
+                            outputArea.scrollTop = outputArea.scrollHeight;
+                            return;
+                        }
+                        
+                        // 安全检查解析结果
+                        if (!data || typeof data !== 'object') {
+                            console.warn('WebSocket: Invalid data structure:', data);
+                            outputArea.innerHTML += `<div class="console-output error">❌ Invalid data structure received</div>`;
+                            outputArea.scrollTop = outputArea.scrollHeight;
+                            return;
+                        }
+                        
+                        // 处理不同类型的消息
+                        if (data.type === 'text_response' && data.response) {
+                            outputArea.innerHTML += '<div class="console-output success">✅ Text response received</div>';
+                            
+                            // 安全访问响应属性
+                            const inputText = data.response.input_text || 'N/A';
+                            const aiResponse = data.response.ai_response || 'N/A';
+                            const modelUsed = data.response.model_used || 'Unknown';
+                            
+                            outputArea.innerHTML += `<div class="console-output"><strong>Input:</strong> ${inputText}</div>`;
+                            outputArea.innerHTML += `<div class="console-output"><strong>AI Response:</strong> ${aiResponse}</div>`;
+                            outputArea.innerHTML += `<div class="console-output"><strong>Model:</strong> ${modelUsed}</div>`;
+                            
+                            // 显示配置文件信息（如果存在）
+                            if (data.response.config_file_info) {
+                                const configInfo = data.response.config_file_info;
+                                outputArea.innerHTML += `<div class="console-output">💾 Config file: ${configInfo.config_updated ? 'Updated' : 'Not updated'}</div>`;
+                            }
+                            
+                        } else if (data.type === 'audio_response' && data.response) {
+                            outputArea.innerHTML += '<div class="console-output success">✅ Audio response received</div>';
+                            
+                            // 处理音频文件
+                            if (data.response.audio_path) {
+                                const audioServer = `http://${window.location.hostname}:8001`;
+                                const audioFilename = data.response.audio_path.split('/').pop();
+                                const audioUrl = `${audioServer}/audio/${audioFilename}`;
+                                
+                                const audioElement = document.createElement('audio');
+                                audioElement.controls = true;
+                                audioElement.src = audioUrl;
+                                audioElement.style.width = '100%';
+                                audioElement.style.marginTop = '10px';
+                                
+                                const audioContainer = document.createElement('div');
+                                audioContainer.className = 'console-output';
+                                audioContainer.innerHTML = '<strong>Audio response:</strong><br>';
+                                audioContainer.appendChild(audioElement);
+                                
+                                outputArea.appendChild(audioContainer);
+                                
+                                // 尝试自动播放
+                                audioElement.play().catch(e => {
+                                    console.log('Auto-play blocked:', e);
+                                });
+                            }
+                            
+                        } else {
+                            // 对于其他消息类型，安全显示
+                            const safeMessage = JSON.stringify(data, null, 2).substring(0, 10000);
+                            outputArea.innerHTML += `<div class="console-output">📨 Message: ${safeMessage}</div>`;
+                        }
+                        
+                    } catch (error) {
+                        console.error('WebSocket message processing error:', error);
+                        outputArea.innerHTML += `<div class="console-output error">❌ Message processing error: ${error.message}</div>`;
+                    }
+                    
+                    // 滚动到底部
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                };
+                
+                // Connection closed
+                wsConnection.onclose = function(event) {
+                    statusElement.textContent = 'Disconnected';
+                    statusElement.className = 'ms-3 badge bg-secondary';
+                    
+                    document.getElementById('ws-connect').disabled = false;
+                    document.getElementById('ws-disconnect').disabled = true;
+                    const sendButton = document.getElementById('ws-send');
+                    if (sendButton) {
+                        sendButton.disabled = true;
+                    }
+                    
+                    // 安全显示关闭原因
+                    const reason = event.reason || 'Unknown reason';
+                    const code = event.code || 'Unknown code';
+                    outputArea.innerHTML += `<div class="console-output">🔌 WebSocket closed (${code}: ${reason})</div>`;
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                    wsConnection = null;
+                };
+                
+                // Connection error
+                wsConnection.onerror = function(error) {
+                    statusElement.textContent = 'Connection Error';
+                    statusElement.className = 'ms-3 badge bg-danger';
+                    
+                    const errorMsg = error.message || 'Connection failed';
+                    outputArea.innerHTML += `<div class="console-output error">❌ WebSocket error: ${errorMsg}</div>`;
+                    outputArea.scrollTop = outputArea.scrollHeight;
+                };
+                
+            } catch (error) {
+                console.error('WebSocket connection setup error:', error);
+                statusElement.textContent = 'Setup Error';
+                statusElement.className = 'ms-3 badge bg-danger';
+                outputArea.innerHTML += `<div class="console-output error">❌ Setup error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

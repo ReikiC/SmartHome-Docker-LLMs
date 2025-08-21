@@ -1,0 +1,480 @@
+<!-- This html is discard -->
+<!-- However, it might be modified for every api test -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinator Function Checker</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .function-group {
+            margin-bottom: 30px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .group-header {
+            background: #3498db;
+            color: white;
+            padding: 15px;
+            margin: 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .group-content {
+            padding: 20px;
+        }
+        .function-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin: 8px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #3498db;
+        }
+        .function-info {
+            flex: 1;
+        }
+        .function-name {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 4px;
+        }
+        .function-desc {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .test-button {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        .test-button:hover {
+            background: #219a52;
+        }
+        .test-button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .result-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: #ecf0f1;
+            border-radius: 6px;
+            border: 1px solid #bdc3c7;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        .success { color: #27ae60; }
+        .error { color: #e74c3c; }
+        .info { color: #3498db; }
+        .curl-command {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-online { background: #27ae60; }
+        .status-offline { background: #e74c3c; }
+        .status-warning { background: #f39c12; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Coordinator Service Function Checker</h1>
+        
+        <!-- Service Status -->
+        <div class="function-group">
+            <h3 class="group-header">📊 Service Status</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">
+                            <span class="status-indicator" id="coordinator-status"></span>
+                            Coordinator Health Check
+                        </div>
+                        <div class="function-desc">GET / - Basic service health and status</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/</div>
+                    </div>
+                    <button class="test-button" onclick="testHealthCheck()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Service Dependencies</div>
+                        <div class="function-desc">Check connectivity to all dependent services</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/status/services</div>
+                    </div>
+                    <button class="test-button" onclick="testServiceDependencies()">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Management -->
+        <div class="function-group">
+            <h3 class="group-header">🧠 Model Management</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">List Available Models</div>
+                        <div class="function-desc">GET /models - Get all available LLM models</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/models</div>
+                    </div>
+                    <button class="test-button" onclick="testListModels()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Switch Model</div>
+                        <div class="function-desc">POST /models/switch - Change active LLM model</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/models/switch -d '{"model_name":"llama3:8b"}'</div>
+                    </div>
+                    <button class="test-button" onclick="testSwitchModel()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Download Model</div>
+                        <div class="function-desc">POST /models/pull - Download new model</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/models/pull -d '{"model_name":"llama3:8b"}'</div>
+                    </div>
+                    <button class="test-button" onclick="testDownloadModel()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Model Configuration</div>
+                        <div class="function-desc">GET /models/config - Get model configuration status</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/models/config</div>
+                    </div>
+                    <button class="test-button" onclick="testModelConfig()">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Text Processing -->
+        <div class="function-group">
+            <h3 class="group-header">💬 Text Processing</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Process Text Command</div>
+                        <div class="function-desc">POST /process_text - Main text processing pipeline</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/process_text -d '{"text":"turn on living room lights"}'</div>
+                    </div>
+                    <button class="test-button" onclick="testProcessText()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Execute Scene</div>
+                        <div class="function-desc">POST /execute_scene - Execute predefined scene</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/execute_scene -d '{"scene_name":"sleep_mode","location":"bedroom"}'</div>
+                    </div>
+                    <button class="test-button" onclick="testExecuteScene()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Room Status</div>
+                        <div class="function-desc">GET /room_status/{room} - Get comprehensive room status</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/room_status/living_room</div>
+                    </div>
+                    <button class="test-button" onclick="testRoomStatus()">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Processing -->
+        <div class="function-group">
+            <h3 class="group-header">🎤 Audio Processing</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Process Audio File</div>
+                        <div class="function-desc">POST /process_audio - Complete audio-to-response pipeline</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/process_audio -F "file=@audio.wav"</div>
+                    </div>
+                    <button class="test-button" onclick="testProcessAudio()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Upload Audio</div>
+                        <div class="function-desc">POST /upload_audio - Upload audio for processing</div>
+                        <div class="curl-command">curl -X POST http://localhost:8080/upload_audio -F "file=@audio.wav"</div>
+                    </div>
+                    <button class="test-button" onclick="testUploadAudio()">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- WebSocket Functions -->
+        <div class="function-group">
+            <h3 class="group-header">🔌 WebSocket Functions</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">WebSocket Connection</div>
+                        <div class="function-desc">ws://localhost:8080/ws - Real-time communication</div>
+                        <div class="curl-command">wscat -c ws://localhost:8080/ws</div>
+                    </div>
+                    <button class="test-button" onclick="testWebSocket()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Connected Clients</div>
+                        <div class="function-desc">GET /ws/clients - List active WebSocket connections</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/ws/clients</div>
+                    </div>
+                    <button class="test-button" onclick="testWebSocketClients()">Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Information -->
+        <div class="function-group">
+            <h3 class="group-header">🖥️ Platform & Debug</h3>
+            <div class="group-content">
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Platform Information</div>
+                        <div class="function-desc">GET /platform/info - System and platform details</div>
+                        <div class="curl-command">curl -X GET http://localhost:8080/platform/info</div>
+                    </div>
+                    <button class="test-button" onclick="testPlatformInfo()">Test</button>
+                </div>
+                
+                <div class="function-item">
+                    <div class="function-info">
+                        <div class="function-name">Test All Endpoints</div>
+                        <div class="function-desc">Run comprehensive test of all available endpoints</div>
+                        <div class="curl-command">Automated testing script</div>
+                    </div>
+                    <button class="test-button" onclick="testAllEndpoints()">Test All</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Area -->
+        <div class="function-group">
+            <h3 class="group-header">📋 Test Results</h3>
+            <div class="group-content">
+                <div id="results" class="result-area">Click any test button above to see results here...</div>
+                <button class="test-button" onclick="clearResults()" style="margin-top: 10px;">Clear Results</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:8080';
+        const resultsArea = document.getElementById('results');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            resultsArea.innerHTML += `[${timestamp}] <span class="${className}">${message}</span>\n`;
+            resultsArea.scrollTop = resultsArea.scrollHeight;
+        }
+
+        function clearResults() {
+            resultsArea.innerHTML = '';
+        }
+
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                log(`🚀 Testing: ${options.method || 'GET'} ${endpoint}`);
+                const response = await fetch(`${BASE_URL}${endpoint}`, {
+                    headers: { 'Content-Type': 'application/json' },
+                    ...options
+                });
+                
+                const responseText = await response.text();
+                let responseData;
+                
+                try {
+                    responseData = JSON.parse(responseText);
+                } catch {
+                    responseData = responseText;
+                }
+
+                if (response.ok) {
+                    log(`✅ Success (${response.status}): ${JSON.stringify(responseData, null, 2)}`, 'success');
+                } else {
+                    log(`❌ Error (${response.status}): ${responseText}`, 'error');
+                }
+                
+                return { success: response.ok, data: responseData, status: response.status };
+            } catch (error) {
+                log(`💥 Network Error: ${error.message}`, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        // Test Functions
+        async function testHealthCheck() {
+            const result = await makeRequest('/');
+            updateServiceStatus(result.success);
+        }
+
+        async function testServiceDependencies() {
+            await makeRequest('/status/services');
+        }
+
+        async function testListModels() {
+            await makeRequest('/models');
+        }
+
+        async function testSwitchModel() {
+            await makeRequest('/models/switch', {
+                method: 'POST',
+                body: JSON.stringify({ model_name: 'llama3:8b' })
+            });
+        }
+
+        async function testDownloadModel() {
+            log('⏳ Note: Model download may take several minutes...');
+            await makeRequest('/models/pull', {
+                method: 'POST',
+                body: JSON.stringify({ model_name: 'llama3:8b' })
+            });
+        }
+
+        async function testModelConfig() {
+            await makeRequest('/models/config');
+        }
+
+        async function testProcessText() {
+            await makeRequest('/process_text', {
+                method: 'POST',
+                body: JSON.stringify({ text: 'turn on living room lights' })
+            });
+        }
+
+        async function testExecuteScene() {
+            await makeRequest('/execute_scene', {
+                method: 'POST',
+                body: JSON.stringify({ scene_name: 'sleep_mode', location: 'bedroom' })
+            });
+        }
+
+        async function testRoomStatus() {
+            await makeRequest('/room_status/living_room');
+        }
+
+        async function testProcessAudio() {
+            log('📁 Audio processing requires file upload - use curl or web interface');
+        }
+
+        async function testUploadAudio() {
+            log('📁 Audio upload requires file - use curl or web interface');
+        }
+
+        async function testWebSocket() {
+            log('🔌 Testing WebSocket connection...');
+            try {
+                const ws = new WebSocket('ws://localhost:8080/ws');
+                
+                ws.onopen = () => {
+                    log('✅ WebSocket connected successfully', 'success');
+                    ws.send(JSON.stringify({ type: 'ping' }));
+                };
+                
+                ws.onmessage = (event) => {
+                    log(`📨 WebSocket message: ${event.data}`, 'success');
+                };
+                
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`, 'error');
+                };
+                
+                setTimeout(() => ws.close(), 3000);
+            } catch (error) {
+                log(`💥 WebSocket connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function testWebSocketClients() {
+            await makeRequest('/ws/clients');
+        }
+
+        async function testPlatformInfo() {
+            await makeRequest('/platform/info');
+        }
+
+        async function testAllEndpoints() {
+            log('🚀 Running comprehensive test suite...');
+            log('=' * 50);
+            
+            const tests = [
+                testHealthCheck,
+                testListModels,
+                testModelConfig,
+                testProcessText,
+                testRoomStatus,
+                testWebSocketClients,
+                testPlatformInfo
+            ];
+            
+            for (const test of tests) {
+                await test();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+            }
+            
+            log('✨ All tests completed!', 'success');
+        }
+
+        function updateServiceStatus(isOnline) {
+            const indicator = document.getElementById('coordinator-status');
+            indicator.className = `status-indicator ${isOnline ? 'status-online' : 'status-offline'}`;
+        }
+
+        // Auto-check service status on page load
+        window.addEventListener('load', () => {
+            setTimeout(testHealthCheck, 1000);
+        });
+    </script>
+</body>
+</html>

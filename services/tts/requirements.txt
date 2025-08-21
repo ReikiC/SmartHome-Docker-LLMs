@@ -1,0 +1,28 @@
+# TTS Service Requirements
+# Core web framework
+fastapi==0.105.0
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# CORS support
+fastapi-cors==0.0.6
+
+# TTS engine
+edge-tts==6.1.9
+
+# Audio processing
+pydub==0.25.1
+numpy==1.24.3
+
+# Async support
+asyncio==3.4.3
+aiofiles==23.2.1
+
+# WebSocket support (for optional WebSocket functionality)
+websockets==12.0
+
+# JSON processing
+pydantic==2.5.0
+
+# FFmpeg python bindings (for pydub)
+ffmpeg-python==0.2.0

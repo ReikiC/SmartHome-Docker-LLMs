@@ -1,0 +1,10 @@
+data/
+
+config/
+
+.DS_Store
+
+.env
+
+test_cases/
+test_results/

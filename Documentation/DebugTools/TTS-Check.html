@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 TTS Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .input-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .status.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .device-list {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .device-item {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: white;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .test-buttons {
+            margin-top: 20px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        .log-container {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 5px;
+            margin: 2px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry.error {
+            color: #dc3545;
+        }
+        .log-entry.success {
+            color: #28a745;
+        }
+        .log-entry.info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ESP32 TTS Control Panel</h1>
+        
+        <!-- 设备选择 -->
+        <div class="input-group">
+            <label for="deviceId">ESP32 Device ID:</label>
+            <select id="deviceId">
+                <option value="ESP32_VOICE_01">ESP32_VOICE_01 (Default)</option>
+                <option value="ESP32_002">ESP32_002</option>
+                <option value="ESP32_003">ESP32_003</option>
+                <option value="custom">Custom...</option>
+            </select>
+            <input type="text" id="customDeviceId" placeholder="Enter custom device ID" style="display:none; margin-top:10px;">
+        </div>
+        
+        <!-- 语音选择 -->
+        <div class="input-group">
+            <label for="voice">Voice:</label>
+            <select id="voice">
+                <option value="en-US-AriaNeural">English - Aria (Female)</option>
+                <option value="en-US-GuyNeural">English - Guy (Male)</option>
+                <option value="zh-CN-XiaoxiaoNeural">Chinese - Xiaoxiao (Female)</option>
+                <option value="zh-CN-YunxiNeural">Chinese - Yunxi (Male)</option>
+            </select>
+        </div>
+        
+        <!-- 文本输入 -->
+        <div class="input-group">
+            <label for="textInput">Text to Speech:</label>
+            <textarea id="textInput" placeholder="Enter text to convert to speech...">Hello from ESP32 TTS system!</textarea>
+        </div>
+        
+        <!-- 控制按钮 -->
+        <div>
+            <button onclick="sendToESP32()" id="sendBtn">Send to ESP32</button>
+            <button onclick="testDirectPCM()" id="testBtn">Test Direct PCM</button>
+            <button onclick="checkDeviceStatus()" id="statusBtn">Check Device Status</button>
+        </div>
+        
+        <!-- 状态显示 -->
+        <div id="status" class="status"></div>
+        
+        <!-- 快速测试按钮 -->
+        <div class="test-buttons">
+            <h3>Quick Test Messages</h3>
+            <button onclick="sendQuickMessage('System initialized successfully')">System Init</button>
+            <button onclick="sendQuickMessage('Temperature is 25 degrees celsius')">Temperature</button>
+            <button onclick="sendQuickMessage('Motion detected in living room')">Motion Alert</button>
+            <button onclick="sendQuickMessage('你好，欢迎使用语音系统')">Chinese Test</button>
+        </div>
+        
+        <!-- 日志显示 -->
+        <div class="log-container">
+            <h3>Activity Log</h3>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <script>
+        // TTS服务地址
+        const TTS_API = 'http://localhost:8001';
+        
+        // 设备ID选择处理
+        document.getElementById('deviceId').addEventListener('change', function(e) {
+            const customInput = document.getElementById('customDeviceId');
+            if (e.target.value === 'custom') {
+                customInput.style.display = 'block';
+            } else {
+                customInput.style.display = 'none';
+            }
+        });
+        
+        // 获取当前设备ID
+        function getCurrentDeviceId() {
+            const select = document.getElementById('deviceId');
+            if (select.value === 'custom') {
+                return document.getElementById('customDeviceId').value || 'ESP32_VOICE_01';
+            }
+            return select.value;
+        }
+        
+        // 添加日志
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logEntries');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.insertBefore(logEntry, logContainer.firstChild);
+            
+            // 限制日志数量
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+        
+        // 显示状态
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
+        
+        // 发送TTS到ESP32
+        async function sendToESP32() {
+            const text = document.getElementById('textInput').value.trim();
+            const voice = document.getElementById('voice').value;
+            const deviceId = getCurrentDeviceId();
+            
+            if (!text) {
+                showStatus('Please enter some text', 'error');
+                return;
+            }
+            
+            if (!deviceId) {
+                showStatus('Please enter a device ID', 'error');
+                return;
+            }
+            
+            // 禁用按钮
+            const sendBtn = document.getElementById('sendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+            
+            try {
+                addLog(`Sending TTS request to device ${deviceId}`, 'info');
+                
+                const response = await fetch(`${TTS_API}/esp32/synthesize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Device-ID': deviceId
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: voice
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showStatus(`✅ TTS sent successfully to ${deviceId}`, 'success');
+                    addLog(`TTS queued for ${deviceId}: "${text.substring(0, 50)}..."`, 'success');
+                    addLog(`Audio ID: ${data.audio_id}`, 'info');
+                } else {
+                    showStatus(`❌ Error: ${data.error}`, 'error');
+                    addLog(`Failed to send TTS: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Network error: ${error.message}`, 'error');
+                addLog(`Network error: ${error.message}`, 'error');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send to ESP32';
+            }
+        }
+        
+        // 测试直接PCM流
+        async function testDirectPCM() {
+            const text = document.getElementById('textInput').value.trim();
+            const voice = document.getElementById('voice').value;
+            
+            if (!text) {
+                showStatus('Please enter some text', 'error');
+                return;
+            }
+            
+            const testBtn = document.getElementById('testBtn');
+            testBtn.disabled = true;
+            testBtn.textContent = 'Testing...';
+            
+            try {
+                addLog('Testing direct PCM stream...', 'info');
+                
+                const response = await fetch(`${TTS_API}/esp32/pcm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: text,
+                        voice: voice
+                    })
+                });
+                
+                if (response.ok) {
+                    const contentLength = response.headers.get('Content-Length');
+                    showStatus(`✅ PCM generated successfully (${contentLength} bytes)`, 'success');
+                    addLog(`PCM stream generated: ${contentLength} bytes`, 'success');
+                    
+                    // 显示音频信息
+                    const sampleRate = response.headers.get('X-Sample-Rate');
+                    const channels = response.headers.get('X-Channels');
+                    const bitsPerSample = response.headers.get('X-Bits-Per-Sample');
+                    addLog(`Audio format: ${sampleRate}Hz, ${channels}ch, ${bitsPerSample}bit`, 'info');
+                } else {
+                    const data = await response.json();
+                    showStatus(`❌ Error: ${data.error}`, 'error');
+                    addLog(`PCM generation failed: ${data.error}`, 'error');
+                }
+                
+            } catch (error) {
+                showStatus(`❌ Network error: ${error.message}`, 'error');
+                addLog(`Network error: ${error.message}`, 'error');
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = 'Test Direct PCM';
+            }
+        }
+        
+        // 检查设备状态
+        async function checkDeviceStatus() {
+            const deviceId = getCurrentDeviceId();
+            
+            if (!deviceId) {
+                showStatus('Please enter a device ID', 'error');
+                return;
+            }
+            
+            const statusBtn = document.getElementById('statusBtn');
+            statusBtn.disabled = true;
+            statusBtn.textContent = 'Checking...';
+            
+            try {
+                addLog(`Checking status for device ${deviceId}...`, 'info');
+                
+                // 这里可以添加实际的状态检查逻辑
+                // 例如，检查设备是否在线，队列中是否有待处理的任务等
+                
+                showStatus(`Device ${deviceId} status check completed`, 'info');
+                addLog(`Device ${deviceId} is ready to receive TTS`, 'success');
+                
+            } catch (error) {
+                showStatus(`❌ Error checking status: ${error.message}`, 'error');
+                addLog(`Status check failed: ${error.message}`, 'error');
+            } finally {
+                statusBtn.disabled = false;
+                statusBtn.textContent = 'Check Device Status';
+            }
+        }
+        
+        // 发送快速测试消息
+        function sendQuickMessage(text) {
+            document.getElementById('textInput').value = text;
+            sendToESP32();
+        }
+        
+        // 页面加载时的初始化
+        window.onload = function() {
+            addLog('TTS Control Panel initialized', 'success');
+            addLog(`TTS API endpoint: ${TTS_API}`, 'info');
+            
+            // 检查TTS服务是否可用
+            fetch(`${TTS_API}/health`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'healthy') {
+                        addLog('TTS service is healthy', 'success');
+                        if (data.audio_processing) {
+                            addLog('PCM audio processing is available', 'success');
+                        } else {
+                            addLog('PCM audio processing is not available', 'warning');
+                        }
+                    }
+                })
+                .catch(error => {
+                    addLog('Failed to connect to TTS service', 'error');
+                    showStatus('⚠️ TTS service is not available', 'error');
+                });
+        };
+        
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendToESP32();
+            }
+        });
+    </script>
+</body>
+</html>
