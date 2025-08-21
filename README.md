@@ -163,6 +163,10 @@ chmod +x start-web-python.sh
 docker-compose down
 ```
 
+### 3D Models
+
+Designed by Fusion 360. Click to access: [SmartHome-Model.f3d](https://github.com/ReikiC/SmartHome-Docker-LLMs/blob/main/SmartHome-Model.f3d)
+
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
