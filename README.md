@@ -111,6 +111,8 @@ The system consists of **5 microservices** running in Docker containers, designe
 
 https://github.com/ReikiC/SmartHome-Hardwares
 
+Notice: The principle design of "Reiki" is refer and modified from: https://oshwhub.com/esp-college/esp-spot 
+
 ### Prerequisites
 
 - Docker and Docker Compose
@@ -166,6 +168,10 @@ docker-compose down
 ### 3D Models
 
 Designed by Fusion 360. Click to access: [SmartHome-Model.f3d](https://github.com/ReikiC/SmartHome-Docker-LLMs/blob/main/SmartHome-Model.f3d)
+
+### Documentation
+
+Click to access: [Documentation](https://github.com/ReikiC/SmartHome-Docker-LLMs/tree/main/Documentation)
 
 ## 📄 License
 
